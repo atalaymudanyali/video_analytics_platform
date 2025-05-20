@@ -1,0 +1,94 @@
+version: '3'
+
+services:
+  video-analytics:
+    build: .
+    ports:
+      - "8000:8000"  # API server
+      - "8554:8554"  # RTSP streaming
+      - "8080:8080"  # HLS streaming
+    volumes:
+      - "C:/Users/user/Desktop/video_analytics_platform/models:/app/models"
+      - "C:/Users/user/Desktop/video_analytics_platform/logs:/app/logs"
+      - "C:/Users/user/Desktop/video_analytics_platform/data:/app/data"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - STREAM_HOST=localhost
+      - STREAM_PORT=8554
+      - HLS_PORT=8080
+      - STREAM_PATH=/streams
+      - ANALYTICS_ENABLED=True
+      - DETECTION_MODEL=yolov5n
+      - DETECTION_CONFIDENCE=0.4
+      - MQTT_ENABLED=True
+      - MQTT_BROKER=mosquitto
+      - MQTT_PORT=1883
+      - MQTT_TOPIC_PREFIX=video_analytics
+      - DB_ENABLED=True
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=video_analytics
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - MPLBACKEND=Agg
+      - PYTHONUNBUFFERED=1
+      - TF_CPP_MIN_LOG_LEVEL=2
+      - CUDA_VISIBLE_DEVICES=-1
+      - TF_FORCE_GPU_ALLOW_GROWTH=false
+      - TORCH_DEVICE=cpu
+      - MONITORING_INTERVAL=5
+    depends_on:
+      - mosquitto
+      - postgres
+    restart: unless-stopped
+    networks:
+      - video-analytics-network
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"  # MQTT
+      - "9001:9001"  # MQTT over WebSockets
+    volumes:
+      - "./mosquitto/config:/mosquitto/config"
+      - "./mosquitto/data:/mosquitto/data"
+      - "./mosquitto/log:/mosquitto/log"
+    restart: unless-stopped
+    networks:
+      - video-analytics-network
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=video_analytics
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - "./postgres/data:/var/lib/postgresql/data"
+    restart: unless-stopped
+    networks:
+      - video-analytics-network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"  # Grafana UI
+    volumes:
+      - "./grafana/data:/var/lib/grafana"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=adminpassword
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - video-analytics-network
+
+networks:
+  video-analytics-network:
+    driver: bridge 

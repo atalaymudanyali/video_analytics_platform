@@ -1,0 +1,33 @@
+# Video Analytics Platform Configuration
+
+# API Settings
+api:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+
+# Streaming Settings
+streaming:
+  rtsp_port: 8554
+  hls_port: 8080
+  segment_duration: 2
+
+# Model Settings
+model:
+  name: "yolov8n.pt"
+  confidence: 0.5
+  device: "cpu"
+
+# Database Settings
+database:
+  host: "localhost"
+  port: 5432
+  name: "video_analytics"
+  user: "postgres"
+  password: "postgres"
+
+# MQTT Settings
+mqtt:
+  host: "localhost"
+  port: 1883
+  topic_prefix: "video_analytics" 

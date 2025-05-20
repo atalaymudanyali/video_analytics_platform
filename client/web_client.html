@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Analytics Platform</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .view-controls {
+            display: flex;
+            margin-bottom: 20px;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .view-mode {
+            display: flex;
+        }
+        .view-mode button {
+            margin-left: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.active {
+            background-color: #2E7D32;
+        }
+        .video-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .video-card {
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .video-header {
+            padding: 10px;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .video-title {
+            font-weight: bold;
+        }
+        .video-frame {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background-color: #000;
+            position: relative;
+        }
+        .video-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .video-footer {
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-active {
+            background-color: #4CAF50;
+        }
+        .status-inactive {
+            background-color: #f44336;
+        }
+        .single-view {
+            display: flex;
+            flex-direction: column;
+        }
+        .single-view .video-frame {
+            width: 100%;
+            height: 70vh;
+        }
+        .analytics-panel {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .detection-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .detection-item {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .hidden {
+            display: none;
+        }
+        #connectionStatus {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-left: 20px;
+        }
+        .connected {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .disconnected {
+            background-color: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Video Analytics Platform</h1>
+        <div>
+            <span id="connectionStatus" class="disconnected">Disconnected</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="view-controls">
+            <div>
+                <button id="refreshBtn">Refresh Sources</button>
+                <button id="toggleAnnotations">Toggle Annotations</button>
+            </div>
+            <div class="view-mode">
+                <span>View Mode:</span>
+                <button id="gridViewBtn" class="active">Grid</button>
+                <button id="singleViewBtn">Single</button>
+            </div>
+        </div>
+
+        <div id="gridView" class="video-container">
+            <!-- Video cards will be added here dynamically -->
+        </div>
+
+        <div id="singleView" class="single-view hidden">
+            <div class="video-card">
+                <div class="video-header">
+                    <span class="video-title" id="singleViewTitle">No Source Selected</span>
+                    <div>
+                        <button id="previousSourceBtn">Previous</button>
+                        <button id="nextSourceBtn">Next</button>
+                    </div>
+                </div>
+                <div class="video-frame">
+                    <img id="singleViewImage" src="about:blank" alt="No stream available">
+                    <div class="video-overlay" id="singleViewFps">0 FPS</div>
+                </div>
+                <div class="video-footer">
+                    <span>
+                        <span class="status-indicator status-active" id="singleViewStatus"></span>
+                        <span id="singleViewStatusText">Active</span>
+                    </span>
+                    <span id="singleViewResolution">0x0</span>
+                </div>
+            </div>
+
+            <div class="analytics-panel">
+                <h2>Detection Analytics</h2>
+                <div>
+                    <strong>Total Detections:</strong> <span id="detectionCount">0</span>
+                </div>
+                <div>
+                    <strong>Classes Detected:</strong> <span id="classesDetected">None</span>
+                </div>
+                <h3>Recent Detections</h3>
+                <div class="detection-list" id="detectionList">
+                    <!-- Detection items will be added here dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
+        const REFRESH_INTERVAL = 1000; // ms
+        const MAX_DETECTIONS = 20;
+
+        // State
+        let sources = [];
+        let selectedSourceIndex = 0;
+        let showAnnotations = true;
+        let connected = false;
+        let frameCounters = {};
+        let lastFrameTimes = {};
+        let detections = {};
+
+        // Elements
+        const gridView = document.getElementById('gridView');
+        const singleView = document.getElementById('singleView');
+        const gridViewBtn = document.getElementById('gridViewBtn');
+        const singleViewBtn = document.getElementById('singleViewBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const toggleAnnotationsBtn = document.getElementById('toggleAnnotations');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const singleViewImage = document.getElementById('singleViewImage');
+        const singleViewTitle = document.getElementById('singleViewTitle');
+        const singleViewFps = document.getElementById('singleViewFps');
+        const singleViewStatus = document.getElementById('singleViewStatus');
+        const singleViewStatusText = document.getElementById('singleViewStatusText');
+        const singleViewResolution = document.getElementById('singleViewResolution');
+        const previousSourceBtn = document.getElementById('previousSourceBtn');
+        const nextSourceBtn = document.getElementById('nextSourceBtn');
+        const detectionCount = document.getElementById('detectionCount');
+        const classesDetected = document.getElementById('classesDetected');
+        const detectionList = document.getElementById('detectionList');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', initialize);
+
+        function initialize() {
+            // Set up event listeners
+            gridViewBtn.addEventListener('click', () => setViewMode('grid'));
+            singleViewBtn.addEventListener('click', () => setViewMode('single'));
+            refreshBtn.addEventListener('click', fetchSources);
+            toggleAnnotationsBtn.addEventListener('click', toggleAnnotations);
+            previousSourceBtn.addEventListener('click', () => changeSelectedSource(-1));
+            nextSourceBtn.addEventListener('click', () => changeSelectedSource(1));
+
+            // Initial data fetch
+            fetchSources();
+            
+            // Start refresh timers
+            setInterval(refreshFrames, REFRESH_INTERVAL);
+            setInterval(refreshAnalytics, 5000);
+            
+            // Check server connection
+            checkConnection();
+            setInterval(checkConnection, 5000);
+        }
+
+        function setViewMode(mode) {
+            if (mode === 'grid') {
+                gridView.classList.remove('hidden');
+                singleView.classList.add('hidden');
+                gridViewBtn.classList.add('active');
+                singleViewBtn.classList.remove('active');
+            } else {
+                gridView.classList.add('hidden');
+                singleView.classList.remove('hidden');
+                gridViewBtn.classList.remove('active');
+                singleViewBtn.classList.add('active');
+                updateSingleView();
+            }
+        }
+
+        function toggleAnnotations() {
+            showAnnotations = !showAnnotations;
+            toggleAnnotationsBtn.textContent = showAnnotations ? 'Hide Annotations' : 'Show Annotations';
+            refreshFrames();
+        }
+
+        async function checkConnection() {
+            try {
+                const response = await fetch(`${API_URL}/status`);
+                if (response.ok) {
+                    setConnected(true);
+                } else {
+                    setConnected(false);
+                }
+            } catch (error) {
+                setConnected(false);
+            }
+        }
+
+        function setConnected(isConnected) {
+            connected = isConnected;
+            connectionStatus.textContent = connected ? 'Connected' : 'Disconnected';
+            connectionStatus.className = connected ? 'connected' : 'disconnected';
+        }
+
+        async function fetchSources() {
+            try {
+                const response = await fetch(`${API_URL}/sources`);
+                if (response.ok) {
+                    sources = await response.json();
+                    renderGridView();
+                    if (sources.length > 0 && selectedSourceIndex >= sources.length) {
+                        selectedSourceIndex = 0;
+                    }
+                    updateSingleView();
+                }
+            } catch (error) {
+                console.error('Error fetching sources:', error);
+            }
+        }
+
+        function renderGridView() {
+            gridView.innerHTML = '';
+            
+            if (sources.length === 0) {
+                const noSourcesMessage = document.createElement('div');
+                noSourcesMessage.className = 'video-card';
+                noSourcesMessage.innerHTML = `
+                    <div class="video-header">
+                        <span class="video-title">No Sources Available</span>
+                    </div>
+                    <div class="video-frame" style="display: flex; align-items: center; justify-content: center; color: white;">
+                        No video sources are available. Add sources through the API.
+                    </div>
+                `;
+                gridView.appendChild(noSourcesMessage);
+                return;
+            }
+            
+            sources.forEach((source, index) => {
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.innerHTML = `
+                    <div class="video-header">
+                        <span class="video-title">${source.id}</span>
+                        <button class="view-btn" data-index="${index}">Full View</button>
+                    </div>
+                    <div class="video-frame">
+                        <img id="img-${source.id}" src="about:blank" alt="${source.id}">
+                        <div class="video-overlay" id="fps-${source.id}">0 FPS</div>
+                    </div>
+                    <div class="video-footer">
+                        <span>
+                            <span class="status-indicator ${source.is_running ? 'status-active' : 'status-inactive'}"></span>
+                            ${source.is_running ? 'Active' : 'Inactive'}
+                        </span>
+                        <span>${source.resolution || '0x0'}</span>
+                    </div>
+                `;
+                gridView.appendChild(card);
+                
+                // Add event listener for full view button
+                card.querySelector('.view-btn').addEventListener('click', () => {
+                    selectedSourceIndex = index;
+                    setViewMode('single');
+                });
+            });
+        }
+
+        function updateSingleView() {
+            if (sources.length === 0) {
+                singleViewTitle.textContent = 'No Source Selected';
+                singleViewImage.src = 'about:blank';
+                singleViewStatus.className = 'status-indicator status-inactive';
+                singleViewStatusText.textContent = 'Inactive';
+                singleViewResolution.textContent = '0x0';
+                singleViewFps.textContent = '0 FPS';
+                return;
+            }
+            
+            const source = sources[selectedSourceIndex];
+            singleViewTitle.textContent = source.id;
+            singleViewStatus.className = `status-indicator ${source.is_running ? 'status-active' : 'status-inactive'}`;
+            singleViewStatusText.textContent = source.is_running ? 'Active' : 'Inactive';
+            singleViewResolution.textContent = source.resolution || '0x0';
+            
+            // Load latest frame
+            loadFrame(source.id, singleViewImage, singleViewFps);
+            
+            // Update analytics panel
+            updateAnalyticsPanel(source.id);
+        }
+
+        function changeSelectedSource(delta) {
+            if (sources.length === 0) return;
+            
+            selectedSourceIndex = (selectedSourceIndex + delta + sources.length) % sources.length;
+            updateSingleView();
+        }
+
+        async function loadFrame(sourceId, imageElement, fpsElement) {
+            if (!connected) return;
+            
+            try {
+                // Add timestamp to prevent caching
+                const timestamp = new Date().getTime();
+                const url = `${API_URL}/sources/${sourceId}/frame?annotate=${showAnnotations}&t=${timestamp}`;
+                
+                // Create a new image object to track load time
+                const img = new Image();
+                const startTime = performance.now();
+                
+                img.onload = function() {
+                    // Update the actual displayed image
+                    imageElement.src = img.src;
+                    
+                    // Calculate and display FPS
+                    const endTime = performance.now();
+                    const loadTime = endTime - startTime;
+                    
+                    // Initialize counter for this source if it doesn't exist
+                    if (!frameCounters[sourceId]) {
+                        frameCounters[sourceId] = 0;
+                        lastFrameTimes[sourceId] = Date.now();
+                    }
+                    
+                    // Increment frame counter
+                    frameCounters[sourceId]++;
+                    
+                    // Calculate FPS every second
+                    const now = Date.now();
+                    const elapsed = now - lastFrameTimes[sourceId];
+                    
+                    if (elapsed >= 1000) {
+                        const fps = Math.round((frameCounters[sourceId] * 1000) / elapsed);
+                        fpsElement.textContent = `${fps} FPS`;
+                        
+                        // Reset counters
+                        frameCounters[sourceId] = 0;
+                        lastFrameTimes[sourceId] = now;
+                    }
+                };
+                
+                img.onerror = function() {
+                    imageElement.src = 'about:blank';
+                    fpsElement.textContent = '0 FPS';
+                };
+                
+                img.src = url;
+            } catch (error) {
+                console.error(`Error loading frame for ${sourceId}:`, error);
+            }
+        }
+
+        function refreshFrames() {
+            // Refresh frames for grid view
+            if (!gridView.classList.contains('hidden')) {
+                sources.forEach(source => {
+                    const imgElement = document.getElementById(`img-${source.id}`);
+                    const fpsElement = document.getElementById(`fps-${source.id}`);
+                    if (imgElement && fpsElement) {
+                        loadFrame(source.id, imgElement, fpsElement);
+                    }
+                });
+            }
+            
+            // Refresh frame for single view
+            if (!singleView.classList.contains('hidden') && sources.length > 0) {
+                const source = sources[selectedSourceIndex];
+                loadFrame(source.id, singleViewImage, singleViewFps);
+            }
+        }
+
+        async function refreshAnalytics() {
+            if (!connected || sources.length === 0) return;
+            
+            try {
+                const sourceId = sources[selectedSourceIndex].id;
+                const response = await fetch(`${API_URL}/analytics/${sourceId}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    detections[sourceId] = data;
+                    
+                    if (!singleView.classList.contains('hidden')) {
+                        updateAnalyticsPanel(sourceId);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching analytics:', error);
+            }
+        }
+
+        function updateAnalyticsPanel(sourceId) {
+            const data = detections[sourceId] || {};
+            
+            // Update counts
+            detectionCount.textContent = data.detection_count || 0;
+            
+            // Update classes
+            const classes = data.class_counts || {};
+            const classNames = Object.keys(classes);
+            
+            if (classNames.length > 0) {
+                const classText = classNames.map(cls => `${cls} (${classes[cls]})`).join(', ');
+                classesDetected.textContent = classText;
+            } else {
+                classesDetected.textContent = 'None';
+            }
+            
+            // In a real implementation, you would update the detection list
+            // with actual detections from real-time MQTT messages
+            // This is just a placeholder
+            detectionList.innerHTML = '';
+            
+            if (data.detection_count > 0) {
+                // Create some dummy detection items
+                for (let i = 0; i < Math.min(MAX_DETECTIONS, data.detection_count); i++) {
+                    const item = document.createElement('div');
+                    item.className = 'detection-item';
+                    
+                    const cls = classNames[i % classNames.length] || 'object';
+                    const confidence = Math.round(Math.random() * 30 + 70) / 100;
+                    
+                    item.textContent = `${cls}: ${confidence.toFixed(2)} confidence`;
+                    detectionList.appendChild(item);
+                }
+            } else {
+                const item = document.createElement('div');
+                item.className = 'detection-item';
+                item.textContent = 'No detections';
+                detectionList.appendChild(item);
+            }
+        }
+    </script>
+</body>
+</html>
